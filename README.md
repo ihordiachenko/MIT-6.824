@@ -1,3 +1,5 @@
+
+
 # MIT 6.824 
 
 赶在返校的最后十几天完成了[6.824: Distributed Systems](https://pdos.csail.mit.edu/6.824/schedule.html)，最后剩2个Challenge和思路返校之后慢慢补吧。
@@ -56,5 +58,79 @@ type Task struct {
 
 整个lab2是要求你实现一个精简版Raft，只实现Raft最核心的两个RPC----RequestVote和AppendEntries.对于Raft算法，已经有很多开源了的，例如[braft](https://github.com/baidu/braft) [ectd](https://github.com/etcd-io/etcd) 等。这些都是非常值得学习的算法库，但对初学者却不够友好，因为通常在工业生产中会对Raft做一些细节上的改动，如PreVoted，同时为了性能做了复杂的并发模型并且整个库还包括其他部分如存储系统。所以824的这个lab2是很适合Raft的初学者加深对基础算法的理解。
 
+这里建议在进行动手之前好好看看课程给出的[文档](https://thesquareplanet.com/blog/students-guide-to-raft/)和论文的Figure-2。简单提几个要点：
 
+在RPC通信开始前，保证mutex Unlock,以免整个系统造成死锁。
 
+在处理任何来自其他peer的信息之前，首先应该updateTerm---如果发送方的Term > currentTerm,节点应该step down.
+
+确保Leader不在当前任期之前更新commitIndex.
+
+#### RequestVote
+
+RequestVote整个过程详见Figure-2.
+
+首先更新状态，vote for self。同时应该reset election 计时器。
+
+```go
+rf.CurrentTerm++
+rf.VotedFor = rf.me
+rf.role = CANDIDATE
+```
+
+然后发起投票，伪代码如下
+
+```
+for i := 0; i < len(rf.peers); i++ {
+		if i == rf.me {
+			continue
+		}
+		go func() {
+			//sendrequestvote
+			ok := rf.sendRequestVote()
+			if ok {
+				ok = rf.handleRequestVoteResponse()
+			}
+			finished++
+			if ok {
+				granted++
+			}
+		}()
+	}
+```
+
+这里需要注意一下，当满足以下两种情况，应该立即结束投票：
+
+所有的投票已经全部完成，无论成功与否。
+
+已收到足够的投票。
+
+结束投票之后判断是否可以becomeLeader.
+
+#### RequestVoteHandle
+
+按照Figure-2实现即可。
+
+### AppendEntries
+
+AppendEntries用于发送日志与心跳连接。按照论文所说，在心跳连接时，发送一个或多个LogEntry也是可以接受的。具体过程还是参考Figure-2.但是实现时有一点需要注意，当接受到RPC 返回消息时，应该进一步判断是否需要继续传送，让follower跟上进度。
+
+### roll back quickly
+
+当follower收到来自leader的AppendEntries消息,发现日志不匹配时，会reply false.leader收到之后，会讲nextIndex - 1,再次进行尝试。但当follower落后太多的情况下，这种方法的效率就显得很低。论文中其实给出了一种优化方式，在824的课程笔记里，进一步进行了介绍。 
+
+> ```
+> Case 1            Case 2       Case 3
+> S1: 4 5 5       4 4 4        4
+> S2: 4 6 6 6 or  4 6 6 6  or  4 6 6 6
+> rejection from S1 includes:
+> XTerm:  term in the conflicting entry (if any)
+> XIndex: index of first entry with that term (if any)
+> XLen:   log length
+> Case 1 (leader doesn't have XTerm):
+> 	nextIndex = XIndex
+> Case 2 (leader has XTerm):
+> 	nextIndex = leader's last entry for XTerm
+> Case 3 (follower's log is too short):
+> 	nextIndex = XLen
+> ```
