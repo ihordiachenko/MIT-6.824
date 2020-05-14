@@ -134,3 +134,41 @@ AppendEntries用于发送日志与心跳连接。按照论文所说，在心跳�
 > Case 3 (follower's log is too short):
 > 	nextIndex = XLen
 > ```
+
+## LAB3 
+
+Lab3需要用到之前的Raft库，搭建一个Key/value service。整个实验相对来说比较简单，只说几个要点。
+
+### client 与 replicas 的交互
+
+​	要与复制组交互的client首先必须知道replicas的配置信息（configuration），最开始client不知道replicas中哪一个server是leader.所以可以随机向一个server发出应用请求。在Raft论文中给出的响应方式是：
+
+```
+if isLeader {
+		service()
+} else {
+	return cachedLeader
+}
+```
+
+​	在这里我们简单实现成
+
+```
+if isLeader {
+		service()
+} else {
+	return ErrorWrongLeader
+}
+```
+
+如果server 不是 leader ，client会受到ErrorWrongLeader的错误返回，并且继续向其他server发送请求。
+
+### 响应超时
+
+​	在leader进行service时，如果出现network partition现象，leader无法同步日志并且无法意识到自己应该step down,而原先的service则会一直阻塞。因此在一开始尚未进行service时，需要添加一个定时任务，超时之后若还是没完成service,则应该返回 ErrorWrongLeader错误。
+
+### 一致性保证
+
+​	Raft算法本身不提供保证**强一致性**保证，但在论文里给出相应的实现方式。这个我的实现是，所有的server在内存缓存
+
+所有client最后操作的时间戳，每一个client的时间戳在client产生RPC request之时决定，只有当改时间戳严格大于最后时间戳，才能进行操作。否则直接忽略，返回成功。
