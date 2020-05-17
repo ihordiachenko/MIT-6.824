@@ -13,7 +13,7 @@
   - [ ] Challenge 1
   - [ ] Challenge 2
 
-## LAB1 MAPREDUCE
+## LAB1 MapReduce
 
 第一个实验是完成一个简单的分布式mapreduce框架，整个实验分三步走:
 
@@ -135,7 +135,7 @@ AppendEntries用于发送日志与心跳连接。按照论文所说，在心跳�
 > 	nextIndex = XLen
 > ```
 
-## LAB3 
+## LAB3  Raft KV
 
 Lab3需要用到之前的Raft库，搭建一个Key/value service。整个实验相对来说比较简单，只说几个要点。
 
@@ -172,3 +172,38 @@ if isLeader {
 ​	Raft算法本身不提供保证**强一致性**保证，但在论文里给出相应的实现方式。这个我的实现是，所有的server在内存缓存
 
 所有client最后操作的时间戳，每一个client的时间戳在client产生RPC request之时决定，只有当改时间戳严格大于最后时间戳，才能进行操作。否则直接忽略，返回成功。
+
+### InstallSanpshot
+
+​	为了提升系统管理日志的效率，当本地日志超过一定阈值时，应该进行存取快照。当系统宕机重启之后，只需要载入快照，在根据快照之后的日志进行备份即可。这种思路在存储系统里很常见。并且，当有新的node加入集群，为了快速赶上leader的进度，leader也可以对node发起InstallSanpshot。
+
+## Lab4 shards KV
+
+整体架构类似于BigTable、Spanner，如下图所示：	![](/Users/zhouchuyi/MIT-6.824-2020/images/WechatIMG78.jpeg)
+
+### master
+
+master负责维持Configuration，即每一个shards server应该负责哪些键值。Client在一开始时并不知道Configuration的信息，所以先向master发起请求询问，master返回当前Configuration之后，再向对应的shards server发出请求。由于configuration在真实情况下很少发生变动，因此Client应该缓存该信息，下次就可以直接根据缓存信息发出请求。Configuration会发生过期，当Client向过期的shards server发出请求的时候，会接受到错误信息，这个时候Client再向master发出最新的Configuration请求。
+
+### shards server
+
+shards server的基本实现和Lab3类似，但需要增加shards migration功能。
+
+1. 每个shards server replicas中的leader节点需要定期向master请求当前最新的配置信息，如果最新的配置与当前的配置不相符，则进行shards migration。
+
+2. 为了保证replicas中所有的节点的一致性，应该提交一条shards migration日志，交给Raft像正常处理请求一样去处理这个日志。
+
+3. 当StateMachine收到shards migration Command时，正式开始迁移数据：把不再负责的shards进行保存，新增需要负责的shards则需要在上一条Configuration中找到对应的server，并请求数据。
+
+4. 彻底完成迁移之后，重新开始于客户端进行交互。
+
+    
+
+
+
+
+
+
+
+
+
