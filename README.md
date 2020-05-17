@@ -179,7 +179,7 @@ if isLeader {
 
 ## Lab4 shards KV
 
-整体架构类似于BigTable、Spanner，如下图所示：	![](/Users/zhouchuyi/MIT-6.824-2020/images/WechatIMG78.jpeg)
+整体架构类似于BigTable、Spanner，如下图所示：	![](./images/WechatIMG78.jpeg)
 
 ### master
 
