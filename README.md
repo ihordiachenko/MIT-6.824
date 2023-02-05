@@ -1,5 +1,6 @@
 
-![Raft FTW](./images/raft.jpeg)
+<img src="./images/raft.jpeg" width=360 height=342 alt="Raft FTW">
+
 
 # MIT 6.824: Distributed Systems, Spring 2020
 
