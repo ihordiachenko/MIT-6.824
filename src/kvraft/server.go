@@ -168,7 +168,7 @@ func (kv* KVServer) doOp() {
 		}
 		op := applyMsg.Command.(Op)
 		res := kv.Run(&op,applyMsg.CommandIndex)
-		go kv.saveSnapshot()
+		kv.saveSnapshot()
 		isLeader := kv.getState()
 		kv.updateState(isLeader)
 		if isLeader {

@@ -241,11 +241,11 @@ func (rf* Raft) becomeLeader() {
 		rf.nextIndex[i] = lastLogIndex + 1
 		rf.matchIndex[i] = 0
 	}
-
+	currentTerm := rf.CurrentTerm
 	//go rf.heartBeatTimer()
 	rf.mu.Unlock()
 	go rf.heartBeatTimer()
-	DPrintf("%v become leader in term %v \n",rf.me,rf.CurrentTerm)
+	DPrintf("%v become leader in term %v \n",rf.me,currentTerm)
 }
 
 func (rf* Raft) becomeFollowerWithLock() {
@@ -534,12 +534,12 @@ func (rf* Raft) handleElectionTimeout() {
 	for finished != len(rf.peers) && granted < len(rf.peers) / 2 + 1 {
 		cond.Wait()
 	}
-	rf.mu.Unlock()
-	term,_ := rf.GetState()
-	if request_.Term == term && granted >= len(rf.peers) / 2 + 1 && rf.Role() == CANDIDATE {
+	if request_.Term == rf.CurrentTerm && granted >= len(rf.peers) / 2 + 1 && rf.role == CANDIDATE {
+		rf.mu.Unlock()
 		rf.becomeLeader()
 	}  else {
 		DPrintf("%v fail in request vote in term %v \n",rf.me,request_.Term)
+		rf.mu.Unlock()
 	}
 
 }
