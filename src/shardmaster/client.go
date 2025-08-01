@@ -8,6 +8,7 @@ import (
 	"../labrpc"
 	"log"
 	"os"
+	"sync"
 )
 import "time"
 import "crypto/rand"
@@ -28,6 +29,7 @@ type Clerk struct {
 	// Your data here.
 	cachedLeader int
 	ClientId int64
+	mu sync.Mutex
 }
 
 func nrand() int64 {
@@ -63,9 +65,11 @@ func (ck *Clerk) Query(num int) Config {
 		//	}
 		//}
 		reply := QueryReply{}
+		ck.mu.Lock()
 		ok := ck.servers[ck.cachedLeader].Call("ShardMaster.Query", args, &reply)
 		if !ok || (reply.Err == WrongLeader && reply.WrongLeader == true) {
 			ck.cachedLeader = (ck.cachedLeader + 1) % len(ck.servers)
+			ck.mu.Unlock()
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
@@ -75,6 +79,7 @@ func (ck *Clerk) Query(num int) Config {
 		} else {
 			os.Exit(-1)
 		}
+		ck.mu.Unlock()
 		return  res
 	}
 }
@@ -96,9 +101,11 @@ func (ck *Clerk) Join(servers map[int][]string) {
 		//}
 		//time.Sleep(100 * time.Millisecond)
 		reply := JoinReply{}
+		ck.mu.Lock()
 		ok := ck.servers[ck.cachedLeader].Call("ShardMaster.Join", args, &reply)
 		if !ok || (reply.Err == WrongLeader && reply.WrongLeader == true) {
 			ck.cachedLeader = (ck.cachedLeader + 1) % len(ck.servers)
+			ck.mu.Unlock()
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
@@ -108,6 +115,7 @@ func (ck *Clerk) Join(servers map[int][]string) {
 		} else {
 			os.Exit(-1)
 		}
+		ck.mu.Unlock()
 		break
 	}
 }
@@ -129,9 +137,11 @@ func (ck *Clerk) Leave(gids []int) {
 		//}
 		//time.Sleep(100 * time.Millisecond)
 		reply := LeaveReply{}
+		ck.mu.Lock()
 		ok := ck.servers[ck.cachedLeader].Call("ShardMaster.Leave", args, &reply)
 		if !ok || (reply.Err == WrongLeader && reply.WrongLeader == true) {
 			ck.cachedLeader = (ck.cachedLeader + 1) % len(ck.servers)
+			ck.mu.Unlock()
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
@@ -141,6 +151,7 @@ func (ck *Clerk) Leave(gids []int) {
 		} else {
 			os.Exit(-1)
 		}
+		ck.mu.Unlock()
 		break
 
 	}
@@ -164,9 +175,11 @@ func (ck *Clerk) Move(shard int, gid int) {
 		//}
 		//time.Sleep(100 * time.Millisecond)
 		reply := MoveReply{}
+		ck.mu.Lock()
 		ok := ck.servers[ck.cachedLeader].Call("ShardMaster.Move", args, &reply)
 		if !ok || (reply.Err == WrongLeader && reply.WrongLeader == true) {
 			ck.cachedLeader = (ck.cachedLeader + 1) % len(ck.servers)
+			ck.mu.Unlock()
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
@@ -176,7 +189,7 @@ func (ck *Clerk) Move(shard int, gid int) {
 		} else {
 			os.Exit(-1)
 		}
-
+		ck.mu.Unlock()
 		break
 	}
 }
