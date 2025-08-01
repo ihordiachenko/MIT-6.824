@@ -213,10 +213,11 @@ func (kv* ShardKV) doMigrating() {
 
 
 func (kv* ShardKV) doConfig(op* Op,index int) {
-	if op.Config.Num == kv.Configuration().Num + 1 {
+	if op.Config.Num == kv.Configuration().Num+1 {
 		kv.mu.Lock()
 		if len(kv.WaitingShards) != 0 || kv.IsMigrating_ {
-			os.Exit(-1)
+			kv.mu.Unlock()
+			return
 		}
 		kv.IsMigrating_ = true
 		oldConfig, oldShards := kv.Config, kv.Config.Shards
